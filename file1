@@ -1,0 +1,90 @@
+provider "aws"{
+  access_key = var.access_key
+  secret_key = var.secret_key
+  region = var.region
+}
+
+variable "access_key"{}
+variable "secret_key"{}
+variable "region"{}
+variable "vpc_cidr"{}
+variable "availability_zone"{}
+variable "subnet_cidr"{}
+variable "all_traffic_cidr"{}
+variable "security_name"{}
+variable "ami"{}
+variable "instance_type"{}
+variable "public_ip"{}
+variable "pem_key"{}
+
+
+resource "aws_vpc" "my-gp"{
+  cidr_block = var.vpc_cidr
+  tags = {
+    Name= "my-gp"
+  }
+}
+
+resource "aws_subnet" "my-pg"{
+  vpc_id = aws_vpc.my-gp.id
+  availability_zone = var.availability_zone
+  cidr_block = var.subnet_cidr
+  tags = {
+    name= "my-pg"
+  }
+}
+
+resource "aws_internet_gateway" "my-gateway"{
+  vpc_id = aws_vpc.my-gp.id
+  tags = {
+    Name= "my-gateway"
+  }
+}
+
+resource "aws_route_table" "my-route"{
+  vpc_id = aws_vpc.my-gp.id
+  route {
+    cidr_block = var.all_traffic_cidr
+    gateway_id = aws_internet_gateway.my-gateway.id
+  }
+  tags = {
+    Name= "my-route"
+  }
+}
+
+resource "aws_security_group" "my-security"{
+  name = "var.security_name"
+  vpc_id = aws_vpc.my-gp.id
+  ingress {
+    from_port = 0
+    protocol = "-1"
+    to_port = 0
+    cidr_blocks = [var.all_traffic_cidr]
+  }
+  egress {
+    from_port = 0
+    protocol = "-1"
+    to_port = 0
+    cidr_blocks = [var.all_traffic_cidr]
+  }
+}
+
+resource "aws_route_table_association" "my-association"{
+  route_table_id = aws_route_table.my-route.id
+  subnet_id = aws_subnet.my-pg.id
+}
+
+resource "aws_instance" "my-instance"{
+  ami = var.ami
+  instance_type = var.instance_type
+  availability_zone = var.availability_zone
+  subnet_id = aws_subnet.my-pg.id
+  vpc_security_group_ids = [aws_security_group.my-security.id]
+  associate_public_ip_address = var.public_ip
+  key_name = var.pem_key
+  tags = {
+    Name= "my-instance"
+  }
+}
+
+
